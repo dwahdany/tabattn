@@ -136,8 +136,13 @@ def handle_tool(name, inp, captured):
             lines = read(p).splitlines()
         except Exception as e:
             return f"error: {e}"
-        s = max(0, inp.get("start", 1) - 1)
-        e = min(len(lines), inp.get("end", s + 120))
+        try:
+            start = int(inp.get("start", 1))
+            end = int(inp.get("end", start + 119))
+        except (TypeError, ValueError):
+            start, end = 1, 120
+        s = max(0, start - 1)
+        e = min(len(lines), max(s + 1, end))
         return "\n".join(f"{i+1}\t{lines[i]}" for i in range(s, e))[:12000]
     if name == "grep":
         r = subprocess.run(["grep", "-rnE", "--include=*.py", inp["pattern"], "."],
@@ -248,19 +253,34 @@ def context_block(points):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--iters", type=int, default=6)
+    ap.add_argument("--hours", type=float, default=0.0,
+                    help="if >0, run until this many wall-clock hours elapse (ignores --iters)")
     ap.add_argument("--points", default="typical,sample")
     ap.add_argument("--repeats", type=int, default=10)
     a = ap.parse_args()
 
-    for i in range(a.iters):
-        print(f"\n{'='*70}\n=== iteration {i+1}/{a.iters} ===\n{'='*70}", flush=True)
+    start = time.monotonic()
+    deadline = start + a.hours * 3600 if a.hours else None
+    i = 0
+    while True:
+        if deadline is not None:
+            if time.monotonic() >= deadline:
+                break
+            left = (deadline - time.monotonic()) / 3600
+            tag = f"iteration {i+1} ({left:.1f}h left)"
+        else:
+            if i >= a.iters:
+                break
+            tag = f"iteration {i+1}/{a.iters}"
+        print(f"\n{'='*70}\n=== {tag} ===\n{'='*70}", flush=True)
         try:
             run_iteration(i, a)
         except Exception as e:  # one bad iteration (e.g. API overload) must not kill the run
             print(f"iteration {i+1} error: {type(e).__name__}: {e}", flush=True)
             git("checkout", "-q", "-f", TRUNK, check=False)
             time.sleep(15)
-    print("\nloop complete.", flush=True)
+        i += 1
+    print(f"\nloop complete ({i} iterations).", flush=True)
 
 
 def run_iteration(i, a):
