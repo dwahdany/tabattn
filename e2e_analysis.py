@@ -37,7 +37,8 @@ def classify_kernel(name: str, cat: str) -> str:
         return "attention"
     if any(k in nl for k in ("gemm", "cutlass", "wgmma", "cublas", "sgemm",
                              "hgemm", "matmul", "ampere_", "xmma", "s16816",
-                             "_mm_", "dot_kernel")):
+                             "_mm_", "dot_kernel", "addmm", "bmm", "::mm",
+                             "baddbmm")):
         return "gemm"
     if "softmax" in nl:
         return "softmax"

@@ -96,6 +96,70 @@ def _component_hooks(model):
     return events, handles
 
 
+def _dev_us(ev):
+    for attr in ("self_device_time_total", "self_cuda_time_total"):
+        v = getattr(ev, attr, None)
+        if v:
+            return v
+    return 0.0
+
+
+def _callsite_attribution(filename, n_train=2048, n_test=256, n_features=64):
+    """Attribute GPU time to operators (by op name + bucket), once, on a small
+    model. Python-line stacks aren't available (TabPFN-3 runs through compiled /
+    C++ paths, so with_stack records nothing), so we attribute by aten op name,
+    which is robust and still actionable ('aten::copy_ = X ms')."""
+    import torch
+    from sklearn.datasets import make_classification
+    from tabpfn import TabPFNClassifier
+    from torch.profiler import profile, ProfilerActivity
+    from e2e_analysis import classify_kernel
+    try:
+        _, local_path = _load_clf(1, filename)
+        X, y = make_classification(n_samples=n_train + n_test,
+                                   n_features=n_features,
+                                   n_informative=max(2, n_features // 2),
+                                   n_classes=2, random_state=0)
+        clf = TabPFNClassifier(device="cuda", n_estimators=1,
+                               model_path=local_path,
+                               ignore_pretraining_limits=True)
+        clf.fit(X[:n_train], y[:n_train])
+        Xte = X[n_train:]
+        clf.predict(Xte)
+        torch.cuda.synchronize()
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
+            clf.predict(Xte)
+        torch.cuda.synchronize()
+
+        # attribute GPU self-time by op name; keep the aten:: dispatcher ops
+        # (readable) and the raw kernels separately so totals aren't conflated.
+        ops = []
+        for e in prof.key_averages():
+            dt = _dev_us(e)
+            if dt <= 0:
+                continue
+            key = e.key
+            kind = "aten" if key.startswith("aten::") else "kernel"
+            ops.append({"op": key[:70], "kind": kind,
+                        "bucket": classify_kernel(key, ""),
+                        "ms": round(dt / 1e3, 3), "count": e.count})
+        ops.sort(key=lambda r: -r["ms"])
+        aten = [o for o in ops if o["kind"] == "aten"][:20]
+        kernels = [o for o in ops if o["kind"] == "kernel"][:20]
+        # bucket totals from the aten view (1 op -> its dispatched device time)
+        bucket_ms = {}
+        for o in aten:
+            bucket_ms[o["bucket"]] = round(
+                bucket_ms.get(o["bucket"], 0.0) + o["ms"], 3)
+        return {"config": f"{n_train}x{n_test}x{n_features}",
+                "by_aten_op": aten, "by_kernel": kernels,
+                "bucket_ms_aten": dict(sorted(bucket_ms.items(),
+                                              key=lambda kv: -kv[1]))}
+    except Exception as e:
+        import traceback
+        return {"error": repr(e), "traceback": traceback.format_exc()}
+
+
 def _point_body(cfg, repeats, warmup, n_estimators, filename, save_trace):
     import gzip, json, time
     import numpy as np
@@ -221,8 +285,13 @@ def bench(points, repeats=5, warmup=2, n_estimators=1, filename="",
             runs.append({"point": name, "error": repr(e),
                          "traceback": traceback.format_exc()})
         torch.cuda.empty_cache()
+    _log("\n===== operator attribution (small model) =====")
+    hotspots = _callsite_attribution(filename)
+    for h in hotspots.get("by_aten_op", [])[:10]:
+        _log(f"  [{h['bucket']:>10}] {h['ms']:>7.1f}ms x{h['count']:<5} {h['op']}")
     return {"gpu": str(torch.cuda.get_device_name(0)),
-            "torch": str(torch.__version__), "runs": runs}
+            "torch": str(torch.__version__), "runs": runs,
+            "hotspots": hotspots}
 
 
 def _print_report(payload):
@@ -249,6 +318,13 @@ def _print_report(payload):
         comp = r["component_breakdown_ms"]
         cs = ", ".join(f"{k}={v:.1f}" for k, v in comp.items())
         print(f'  {r["point"]:>8}: {cs}')
+    # operator attribution (global, small model)
+    hs = payload.get("hotspots", {})
+    if "by_aten_op" in hs:
+        print(f'\ntop GPU operators (ms)  [small model {hs.get("config")}]:')
+        for h in hs["by_aten_op"][:14]:
+            print(f'  [{h["bucket"]:>10}] {h["ms"]:>7.1f}ms x{h["count"]:<6} {h["op"]}')
+        print(f'  bucket totals (aten view): {hs.get("bucket_ms_aten")}')
 
 
 @app.local_entrypoint()
@@ -261,6 +337,20 @@ def main(points: str = "", repeats: int = 5, warmup: int = 2,
         json.dump(payload, f, indent=2)
     _print_report(payload)
     print(f"\nWrote {out}.json   (traces in volume 'tabpfn-traces')")
+
+
+@app.function(gpu="H100", volumes={CACHE: cache_vol, TRACES: traces_vol},
+              timeout=60 * 15)
+def hotspots_only(filename: str = ""):
+    import torch
+    return {"gpu": str(torch.cuda.get_device_name(0)),
+            "hotspots": _callsite_attribution(filename)}
+
+
+@app.local_entrypoint()
+def hotspots(filename: str = ""):
+    import json
+    print(json.dumps(hotspots_only.remote(filename), indent=2, default=str))
 
 
 @app.local_entrypoint()
