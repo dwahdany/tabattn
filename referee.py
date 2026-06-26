@@ -74,7 +74,7 @@ def proba_diff(a_npy, b_npy):
 
 
 def calibrate(points, repeats, warmup):
-    git("checkout", "-q", TRUNK)
+    git("checkout", "-q", "-f", TRUNK)
     r1 = run_worker("cal1", points, repeats, warmup)
     r2 = run_worker("cal2", points, repeats, warmup)
     cal = {"trunk": cur_ref(), "points": {}}
@@ -92,14 +92,14 @@ def calibrate(points, repeats, warmup):
 
 def evaluate(ref, points, repeats, warmup, hypothesis):
     cal = json.load(open(CAL))
-    git("checkout", "-q", TRUNK)
+    git("checkout", "-q", "-f", TRUNK)
     base = run_worker("base", points, repeats, warmup)
-    git("checkout", "-q", ref)
+    git("checkout", "-q", "-f", ref)
     cand_ref = cur_ref()
     try:
         cand = run_worker("cand", points, repeats, warmup)
     finally:
-        git("checkout", "-q", TRUNK)
+        git("checkout", "-q", "-f", TRUNK)
 
     per = {}
     speedups, ok_speed, ok_corr = [], [], []
