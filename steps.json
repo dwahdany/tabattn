@@ -1,0 +1,36 @@
+{
+  "order": [
+    "0_stock",
+    "1_compile-large",
+    "2_contiguous",
+    "3_base_scales",
+    "4_fused_qkv",
+    "5_dist_embed"
+  ],
+  "states": {
+    "0_stock": {
+      "typical": 132.80865363776684,
+      "sample": 287.42173686623573
+    },
+    "1_compile-large": {
+      "typical": 137.28700578212738,
+      "sample": 266.75428822636604
+    },
+    "2_contiguous": {
+      "typical": 128.18537466228008,
+      "sample": 240.39400927722454
+    },
+    "3_base_scales": {
+      "typical": 120.74350286275148,
+      "sample": 240.74660521000624
+    },
+    "4_fused_qkv": {
+      "typical": 123.60942550003529,
+      "sample": 239.7555960342288
+    },
+    "5_dist_embed": {
+      "typical": 120.72047684341669,
+      "sample": 241.7129259556532
+    }
+  }
+}
