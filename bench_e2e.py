@@ -353,6 +353,65 @@ def hotspots(filename: str = ""):
     print(json.dumps(hotspots_only.remote(filename), indent=2, default=str))
 
 
+@app.function(gpu="H100", volumes={CACHE: cache_vol, TRACES: traces_vol},
+              timeout=60 * 20)
+def determinism(filename: str = ""):
+    """Settle whether TabPFN-3 predict is deterministic. For each size, in ONE
+    container, isolate: (A) pure GPU nondeterminism (same fitted object, predict
+    twice), (B) instantiation determinism (two fresh clfs, random_state=0),
+    (C) effect of a different seed."""
+    import numpy as np
+    import torch
+    from sklearn.datasets import make_classification
+    from tabpfn import TabPFNClassifier
+    _, local_path = _load_clf(1, filename)
+
+    def mk(rs):
+        return TabPFNClassifier(device="cuda", n_estimators=1,
+                                model_path=local_path,
+                                ignore_pretraining_limits=True, random_state=rs)
+
+    def diff(a, b):
+        return {"max_abs_dproba": round(float(np.abs(a - b).max()), 6),
+                "argmax_agree": round(float((a.argmax(1) == b.argmax(1)).mean()), 5)}
+
+    out = []
+    for nt, nte, nf in [(1024, 512, 32), (4096, 1024, 64), (16384, 1024, 64)]:
+        X, y = make_classification(n_samples=nt + nte, n_features=nf,
+                                   n_informative=max(2, nf // 2), n_classes=2,
+                                   random_state=0)
+        Xtr, ytr, Xte = X[:nt], y[:nt], X[nt:]
+        c0 = mk(0); c0.fit(Xtr, ytr)
+        p1 = c0.predict_proba(Xte)
+        p2 = c0.predict_proba(Xte)                 # A: same object
+        cB = mk(0); cB.fit(Xtr, ytr); pB = cB.predict_proba(Xte)  # B: fresh, rs=0
+        cC = mk(1); cC.fit(Xtr, ytr); pC = cC.predict_proba(Xte)  # C: rs=1
+        out.append({"size": f"{nt}x{nte}x{nf}",
+                    "A_same_object": diff(p1, p2),
+                    "B_fresh_rs0": diff(p1, pB),
+                    "C_diff_seed_rs1": diff(p1, pC)})
+        torch.cuda.empty_cache()
+        # persist incrementally so contention/disconnect can't lose results
+        import json
+        payload = {"gpu": str(torch.cuda.get_device_name(0)), "results": out}
+        with open(f"{TRACES}/determinism.json", "w") as f:
+            json.dump(payload, f, indent=2)
+        traces_vol.commit()
+    return {"gpu": str(torch.cuda.get_device_name(0)), "results": out}
+
+
+@app.local_entrypoint()
+def det(filename: str = ""):
+    import json
+    try:
+        print(json.dumps(determinism.remote(filename), indent=2))
+    except Exception as e:
+        print(f"(lost connection: {e}) -- reading from volume")
+        traces_vol.reload()
+        data = b"".join(traces_vol.read_file("determinism.json"))
+        print(data.decode())
+
+
 @app.local_entrypoint()
 def fetch_traces(dest: str = "traces"):
     """Download all chrome traces + summaries from the volume."""
