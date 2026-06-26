@@ -133,9 +133,11 @@ def handle_tool(name, inp, captured):
                            capture_output=True, text=True)
         return (r.stdout or "(no matches)")[:6000]
     if name == "submit_proposal":
-        f = inp["file"]
+        f = inp.get("file", "")
         if not (f.startswith("architectures/") and safe_path(f)):
             return "error: file must be under architectures/ and .py"
+        if not (inp.get("old_str") and inp.get("new_str") and inp.get("hypothesis")):
+            return "error: include non-empty file, old_str, new_str, AND hypothesis."
         try:
             content = read(f)
         except Exception as e:
