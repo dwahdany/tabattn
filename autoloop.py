@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 import anthropic
 
@@ -35,7 +36,7 @@ TPDIR = subprocess.check_output(
 
 if not os.environ.get("ANTHROPIC_API_KEY") and os.path.exists("/workspace/.anthropic_key"):
     os.environ["ANTHROPIC_API_KEY"] = open("/workspace/.anthropic_key").read().strip()
-client = anthropic.Anthropic()
+client = anthropic.Anthropic(max_retries=8)  # ride out 429/529/5xx with backoff
 
 
 def git(*a, check=True):
@@ -229,11 +230,21 @@ def main():
 
     for i in range(a.iters):
         print(f"\n{'='*70}\n=== iteration {i+1}/{a.iters} ===\n{'='*70}", flush=True)
+        try:
+            run_iteration(i, a)
+        except Exception as e:  # one bad iteration (e.g. API overload) must not kill the run
+            print(f"iteration {i+1} error: {type(e).__name__}: {e}", flush=True)
+            git("checkout", "-q", "-f", TRUNK, check=False)
+            time.sleep(15)
+    print("\nloop complete.", flush=True)
+
+
+def run_iteration(i, a):
         git("checkout", "-q", "-f", TRUNK)
         prop = propose(context_block(a.points))
         if not prop:
             print("no proposal; skipping", flush=True)
-            continue
+            return
         print(f"PROPOSAL [{prop.get('frontier_id','?')}]: {prop['hypothesis'][:120]}", flush=True)
 
         # apply on a branch
@@ -254,7 +265,7 @@ def main():
         if not verdict_c["approve"]:
             git("checkout", "-q", "-f", TRUNK)
             log_note(i + 1, prop, "critic-reject", verdict_c["reason"], None)
-            continue
+            return
 
         # referee
         git("checkout", "-q", "-f", TRUNK)
@@ -273,7 +284,6 @@ def main():
                            capture_output=True, text=True)
             print(f"  ACCEPTED -> promoted to trunk", flush=True)
         log_note(i + 1, prop, rec["verdict"], verdict_c["reason"], rec)
-    print("\nloop complete.", flush=True)
 
 
 def log_note(i, prop, verdict, critic_reason, rec):
