@@ -1,0 +1,506 @@
+{
+  "gpu": "NVIDIA H100 80GB HBM3",
+  "torch": "2.12.1+cu130",
+  "runs": [
+    {
+      "point": "tiny",
+      "key": "tiny_1024x512x32",
+      "ckpt": "tabpfn-v3-classifier-v3_20260417_multiclass.ckpt",
+      "params": {
+        "n_train": 1024,
+        "n_test": 512,
+        "n_features": 32,
+        "n_estimators": 1,
+        "repeats": 5
+      },
+      "wall_ms_median": 65.404,
+      "wall_ms_min": 61.185,
+      "peak_mem_mb": 513.7,
+      "correctness": {
+        "baseline": "stored-now"
+      },
+      "component_breakdown_ms": {
+        "icl_attention(cross-row)": 19.228,
+        "feature_embedder(ISAB)": 3.716,
+        "column_agg(cross-col)": 3.186,
+        "icl_mlp": 1.699
+      },
+      "systems": {
+        "wall_ms": 65.404,
+        "window_ms": 101.97,
+        "gpu_busy_union_ms": 11.251,
+        "gpu_busy_sum_ms": 11.25,
+        "overlap_ms": 0.0,
+        "busy_fraction": 0.11,
+        "exposed_overhead_ms": 54.154,
+        "n_gpu_kernels": 2919,
+        "n_streams": 1,
+        "launches": 2735,
+        "syncs": 30,
+        "memcpy_calls": 99,
+        "buckets": {
+          "copy/cast": {
+            "ms": 4.365,
+            "count": 1282
+          },
+          "elementwise": {
+            "ms": 2.024,
+            "count": 834
+          },
+          "other": {
+            "ms": 2.014,
+            "count": 421
+          },
+          "attention": {
+            "ms": 1.474,
+            "count": 58
+          },
+          "norm": {
+            "ms": 0.958,
+            "count": 75
+          },
+          "gemm": {
+            "ms": 0.209,
+            "count": 64
+          },
+          "memcpy": {
+            "ms": 0.135,
+            "count": 99
+          },
+          "memset": {
+            "ms": 0.07,
+            "count": 85
+          },
+          "softmax": {
+            "ms": 0.001,
+            "count": 1
+          }
+        },
+        "memcpy_by_dir": {
+          "HtoD": {
+            "ms": 0.022,
+            "count": 15
+          },
+          "DtoD": {
+            "ms": 0.075,
+            "count": 70
+          },
+          "DtoH": {
+            "ms": 0.039,
+            "count": 14
+          }
+        },
+        "top_gaps_ms": [
+          {
+            "gap_ms": 1.76,
+            "at_ms": 7398207420.907
+          },
+          {
+            "gap_ms": 1.043,
+            "at_ms": 7398207445.01
+          },
+          {
+            "gap_ms": 0.587,
+            "at_ms": 7398207422.724
+          },
+          {
+            "gap_ms": 0.57,
+            "at_ms": 7398207420.33
+          },
+          {
+            "gap_ms": 0.361,
+            "at_ms": 7398207480.711
+          },
+          {
+            "gap_ms": 0.248,
+            "at_ms": 7398207458.684
+          },
+          {
+            "gap_ms": 0.225,
+            "at_ms": 7398207438.207
+          },
+          {
+            "gap_ms": 0.208,
+            "at_ms": 7398207417.557
+          }
+        ]
+      },
+      "trace_file": "/traces/tiny_1024x512x32.chrome.json.gz"
+    },
+    {
+      "point": "typical",
+      "key": "typical_4096x2048x64",
+      "ckpt": "tabpfn-v3-classifier-v3_20260417_multiclass.ckpt",
+      "params": {
+        "n_train": 4096,
+        "n_test": 2048,
+        "n_features": 64,
+        "n_estimators": 1,
+        "repeats": 5
+      },
+      "wall_ms_median": 162.218,
+      "wall_ms_min": 161.051,
+      "peak_mem_mb": 961.0,
+      "correctness": {
+        "baseline": "stored-now"
+      },
+      "component_breakdown_ms": {
+        "column_agg(cross-col)": 19.609,
+        "icl_attention(cross-row)": 12.36,
+        "feature_embedder(ISAB)": 11.633,
+        "icl_mlp": 1.504
+      },
+      "systems": {
+        "wall_ms": 162.218,
+        "window_ms": 210.346,
+        "gpu_busy_union_ms": 59.443,
+        "gpu_busy_sum_ms": 59.443,
+        "overlap_ms": 0.0,
+        "busy_fraction": 0.283,
+        "exposed_overhead_ms": 102.775,
+        "n_gpu_kernels": 8103,
+        "n_streams": 1,
+        "launches": 7661,
+        "syncs": 31,
+        "memcpy_calls": 162,
+        "buckets": {
+          "copy/cast": {
+            "ms": 23.547,
+            "count": 3952
+          },
+          "attention": {
+            "ms": 9.764,
+            "count": 172
+          },
+          "other": {
+            "ms": 8.727,
+            "count": 1337
+          },
+          "elementwise": {
+            "ms": 8.683,
+            "count": 1640
+          },
+          "norm": {
+            "ms": 7.573,
+            "count": 415
+          },
+          "gemm": {
+            "ms": 0.609,
+            "count": 144
+          },
+          "memcpy": {
+            "ms": 0.281,
+            "count": 162
+          },
+          "memset": {
+            "ms": 0.257,
+            "count": 280
+          },
+          "softmax": {
+            "ms": 0.001,
+            "count": 1
+          }
+        },
+        "memcpy_by_dir": {
+          "HtoD": {
+            "ms": 0.048,
+            "count": 15
+          },
+          "DtoD": {
+            "ms": 0.143,
+            "count": 132
+          },
+          "DtoH": {
+            "ms": 0.09,
+            "count": 15
+          }
+        },
+        "top_gaps_ms": [
+          {
+            "gap_ms": 6.687,
+            "at_ms": 7398214842.852
+          },
+          {
+            "gap_ms": 2.629,
+            "at_ms": 7398214849.646
+          },
+          {
+            "gap_ms": 0.427,
+            "at_ms": 7398214873.114
+          },
+          {
+            "gap_ms": 0.339,
+            "at_ms": 7398214836.225
+          },
+          {
+            "gap_ms": 0.269,
+            "at_ms": 7398214854.6
+          },
+          {
+            "gap_ms": 0.198,
+            "at_ms": 7398214839.054
+          },
+          {
+            "gap_ms": 0.187,
+            "at_ms": 7398214857.95
+          },
+          {
+            "gap_ms": 0.174,
+            "at_ms": 7398214841.744
+          }
+        ]
+      },
+      "trace_file": "/traces/typical_4096x2048x64.chrome.json.gz"
+    },
+    {
+      "point": "sample",
+      "key": "sample_16384x2048x64",
+      "ckpt": "tabpfn-v3-classifier-v3_20260417_multiclass.ckpt",
+      "params": {
+        "n_train": 16384,
+        "n_test": 2048,
+        "n_features": 64,
+        "n_estimators": 1,
+        "repeats": 5
+      },
+      "wall_ms_median": 311.946,
+      "wall_ms_min": 286.908,
+      "peak_mem_mb": 1021.3,
+      "correctness": {
+        "baseline": "stored-now"
+      },
+      "component_breakdown_ms": {
+        "column_agg(cross-col)": 58.535,
+        "icl_attention(cross-row)": 42.917,
+        "feature_embedder(ISAB)": 34.794,
+        "icl_mlp": 3.162
+      },
+      "systems": {
+        "wall_ms": 311.946,
+        "window_ms": 318.918,
+        "gpu_busy_union_ms": 189.135,
+        "gpu_busy_sum_ms": 189.135,
+        "overlap_ms": 0.0,
+        "busy_fraction": 0.593,
+        "exposed_overhead_ms": 122.811,
+        "n_gpu_kernels": 10227,
+        "n_streams": 1,
+        "launches": 9454,
+        "syncs": 29,
+        "memcpy_calls": 157,
+        "buckets": {
+          "copy/cast": {
+            "ms": 66.57,
+            "count": 5018
+          },
+          "attention": {
+            "ms": 53.765,
+            "count": 208
+          },
+          "norm": {
+            "ms": 23.899,
+            "count": 518
+          },
+          "elementwise": {
+            "ms": 22.857,
+            "count": 1914
+          },
+          "other": {
+            "ms": 19.648,
+            "count": 1602
+          },
+          "gemm": {
+            "ms": 1.062,
+            "count": 193
+          },
+          "memcpy": {
+            "ms": 0.731,
+            "count": 157
+          },
+          "memset": {
+            "ms": 0.602,
+            "count": 616
+          },
+          "softmax": {
+            "ms": 0.002,
+            "count": 1
+          }
+        },
+        "memcpy_by_dir": {
+          "HtoD": {
+            "ms": 0.228,
+            "count": 15
+          },
+          "DtoD": {
+            "ms": 0.176,
+            "count": 129
+          },
+          "DtoH": {
+            "ms": 0.327,
+            "count": 13
+          }
+        },
+        "top_gaps_ms": [
+          {
+            "gap_ms": 25.256,
+            "at_ms": 7398224977.171
+          },
+          {
+            "gap_ms": 2.807,
+            "at_ms": 7398225002.929
+          },
+          {
+            "gap_ms": 0.688,
+            "at_ms": 7398225007.077
+          },
+          {
+            "gap_ms": 0.477,
+            "at_ms": 7398225002.433
+          },
+          {
+            "gap_ms": 0.417,
+            "at_ms": 7398225008.914
+          },
+          {
+            "gap_ms": 0.354,
+            "at_ms": 7398225006.005
+          },
+          {
+            "gap_ms": 0.266,
+            "at_ms": 7398225012.175
+          },
+          {
+            "gap_ms": 0.259,
+            "at_ms": 7398224969.803
+          }
+        ]
+      },
+      "trace_file": "/traces/sample_16384x2048x64.chrome.json.gz"
+    },
+    {
+      "point": "feature",
+      "key": "feature_8192x2048x512",
+      "ckpt": "tabpfn-v3-classifier-v3_20260417_multiclass.ckpt",
+      "params": {
+        "n_train": 8192,
+        "n_test": 2048,
+        "n_features": 512,
+        "n_estimators": 1,
+        "repeats": 5
+      },
+      "wall_ms_median": 1826.575,
+      "wall_ms_min": 1815.674,
+      "peak_mem_mb": 5528.5,
+      "correctness": {
+        "baseline": "stored-now"
+      },
+      "component_breakdown_ms": {
+        "column_agg(cross-col)": 429.872,
+        "feature_embedder(ISAB)": 243.704,
+        "icl_attention(cross-row)": 34.518,
+        "icl_mlp": 3.425
+      },
+      "systems": {
+        "wall_ms": 1826.575,
+        "window_ms": 2200.056,
+        "gpu_busy_union_ms": 1092.927,
+        "gpu_busy_sum_ms": 1092.926,
+        "overlap_ms": 0.0,
+        "busy_fraction": 0.497,
+        "exposed_overhead_ms": 733.649,
+        "n_gpu_kernels": 71176,
+        "n_streams": 1,
+        "launches": 68053,
+        "syncs": 44,
+        "memcpy_calls": 1015,
+        "buckets": {
+          "copy/cast": {
+            "ms": 425.882,
+            "count": 36065
+          },
+          "attention": {
+            "ms": 210.855,
+            "count": 1573
+          },
+          "norm": {
+            "ms": 163.154,
+            "count": 4514
+          },
+          "elementwise": {
+            "ms": 151.358,
+            "count": 12017
+          },
+          "other": {
+            "ms": 124.573,
+            "count": 12501
+          },
+          "gemm": {
+            "ms": 8.219,
+            "count": 1382
+          },
+          "memcpy": {
+            "ms": 7.06,
+            "count": 1015
+          },
+          "memset": {
+            "ms": 1.823,
+            "count": 2108
+          },
+          "softmax": {
+            "ms": 0.001,
+            "count": 1
+          }
+        },
+        "memcpy_by_dir": {
+          "DtoD": {
+            "ms": 1.137,
+            "count": 972
+          },
+          "HtoD": {
+            "ms": 3.544,
+            "count": 24
+          },
+          "DtoH": {
+            "ms": 2.379,
+            "count": 19
+          }
+        },
+        "top_gaps_ms": [
+          {
+            "gap_ms": 32.025,
+            "at_ms": 7398250199.169
+          },
+          {
+            "gap_ms": 25.314,
+            "at_ms": 7398251373.507
+          },
+          {
+            "gap_ms": 22.676,
+            "at_ms": 7398251345.165
+          },
+          {
+            "gap_ms": 7.179,
+            "at_ms": 7398250231.644
+          },
+          {
+            "gap_ms": 5.715,
+            "at_ms": 7398251399.224
+          },
+          {
+            "gap_ms": 3.256,
+            "at_ms": 7398250179.761
+          },
+          {
+            "gap_ms": 2.976,
+            "at_ms": 7398251369.122
+          },
+          {
+            "gap_ms": 0.518,
+            "at_ms": 7398250241.257
+          }
+        ]
+      },
+      "trace_file": "/traces/feature_8192x2048x512.chrome.json.gz"
+    }
+  ]
+}
