@@ -1,0 +1,13 @@
+[project]
+name = "tab-attn-bench"
+version = "0.1.0"
+description = "Benchmark of attention backends for tabular foundation models (cross-row / cross-column attention) on Modal/CUDA"
+requires-python = ">=3.10"
+dependencies = [
+    "matplotlib>=3.10.9",
+    "modal>=0.64",
+    "numpy>=2.2.6",
+]
+
+# The GPU-side dependencies (torch, flash-attn, xformers) live in the Modal
+# image defined in modal_app.py, not here -- locally you only need `modal`.
