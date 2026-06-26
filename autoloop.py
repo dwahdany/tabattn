@@ -63,6 +63,9 @@ TOOLS = [
     {"name": "grep", "description": "Regex search across the tabpfn package; returns file:line matches.",
      "input_schema": {"type": "object", "properties": {"pattern": {"type": "string"}},
                       "required": ["pattern"]}},
+    {"name": "grep_notes", "description": "Search the full lab notebook (NOTES.md: what-works, dead-ends, per-round detail). Use to recall why a past idea was accepted/rejected before proposing something similar.",
+     "input_schema": {"type": "object", "properties": {"pattern": {"type": "string"}},
+                      "required": ["pattern"]}},
     {"name": "submit_proposal",
      "description": "Submit ONE edit. old_str must appear VERBATIM exactly once in the file.",
      "input_schema": {"type": "object", "properties": {
@@ -92,7 +95,9 @@ RULES:
 - FORBIDDEN (the critic will reject): changing the math/predictions, changing output shapes,
   caching or special-casing the benchmark inputs, skipping samples/layers, lowering precision
   in a way that changes results, touching the harness/gate/data.
-- Read the diagnostics, notes (what works / dead ends), and frontier first. Don't repeat dead ends.
+- A concise list of EVERY previously-tried idea (with verdict) is in the user message.
+  Do not re-propose a dead-end / no-speedup unless your approach is materially different;
+  use grep_notes to recall WHY a prior idea failed before proposing something similar.
 - Explore with read_file/grep, then submit_proposal once. Be surgical and concrete."""
 
 CRITIC_SYS = """You are an adversarial reviewer guarding an autoresearch loop that speeds up
@@ -119,6 +124,12 @@ def handle_tool(name, inp, captured):
     if name == "grep":
         r = subprocess.run(["grep", "-rnE", inp["pattern"], "architectures/"],
                            cwd=TPDIR, capture_output=True, text=True)
+        return (r.stdout or "(no matches)")[:6000]
+    if name == "grep_notes":
+        if not os.path.exists(NOTES):
+            return "(no notes yet)"
+        r = subprocess.run(["grep", "-niE", "-A2", inp["pattern"], NOTES],
+                           capture_output=True, text=True)
         return (r.stdout or "(no matches)")[:6000]
     if name == "submit_proposal":
         f = inp["file"]
@@ -187,22 +198,26 @@ def critic(diff, hypothesis):
 # orchestration
 # --------------------------------------------------------------------------- #
 def context_block(points):
-    notes = open(NOTES).read()[-4000:] if os.path.exists(NOTES) else ""
     frontier = open(FRONTIER).read() if os.path.exists(FRONTIER) else "{}"
     hot = ""
     if os.path.exists(HOTSPOTS):
         h = json.load(open(HOTSPOTS))
         hot = "\n".join(f"  [{o['bucket']}] {o['ms']}ms x{o['count']} {o['op']}"
                         for o in h.get("by_aten_op", [])[:12])
-    led = ""
+    # Concise one-line-per-round summary of EVERY prior attempt (complete, tiny).
+    # Full detail is available on demand via the grep_notes tool.
+    tried = "(none yet)"
     if os.path.exists(LEDGER):
-        rows = [json.loads(l) for l in open(LEDGER)][-8:]
-        led = "\n".join(f"  {r['verdict']:18s} {r['geomean_speedup']} {r['hypothesis'][:60]}"
-                        for r in rows)
+        rows = [json.loads(l) for l in open(LEDGER)]
+        tried = "\n".join(f"  {r['verdict']:18s} {r.get('geomean_speedup','?')}x  "
+                          f"{r['hypothesis'][:75]}" for r in rows)
     return (f"# Diagnostics (top GPU ops, small model)\n{hot}\n\n"
-            f"# NOTES (lab notebook)\n{notes}\n\n# frontier.json\n{frontier}\n\n"
-            f"# recent ledger\n{led}\n\n"
-            f"Propose ONE output-preserving optimization. Operating points: {points}.")
+            f"# Previously tried — ALL rounds (do NOT repeat a dead-end / no-speedup\n"
+            f"# unless your idea is materially different; use grep_notes for why):\n{tried}\n\n"
+            f"# frontier.json (ranked ideas)\n{frontier}\n\n"
+            f"Propose ONE output-preserving optimization. Operating points: {points}. "
+            f"Before proposing, if your idea resembles anything in the list above, "
+            f"grep_notes to see why it was rejected and do something different.")
 
 
 def main():
