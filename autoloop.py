@@ -68,13 +68,18 @@ TOOLS = [
      "input_schema": {"type": "object", "properties": {"pattern": {"type": "string"}},
                       "required": ["pattern"]}},
     {"name": "submit_proposal",
-     "description": "Submit ONE edit. old_str must appear VERBATIM exactly once in the file.",
+     "description": "Submit a candidate = one OR MORE coordinated edits across one or more "
+                    "files in the tabpfn package. Each edit's old_str must appear VERBATIM "
+                    "exactly once in its file. Use multiple edits to e.g. add an import AND "
+                    "wrap a forward AND add a cache for one coherent optimization.",
      "input_schema": {"type": "object", "properties": {
-         "file": {"type": "string", "description": "path under architectures/, e.g. architectures/tabpfn_v3.py"},
-         "old_str": {"type": "string"}, "new_str": {"type": "string"},
+         "edits": {"type": "array", "items": {"type": "object", "properties": {
+             "file": {"type": "string", "description": "path within the tabpfn package, e.g. architectures/tabpfn_v3.py"},
+             "old_str": {"type": "string"}, "new_str": {"type": "string"}},
+             "required": ["file", "old_str", "new_str"]}},
          "hypothesis": {"type": "string", "description": "what & why, incl. expected speed mechanism"},
          "frontier_id": {"type": "string"}},
-         "required": ["file", "old_str", "new_str", "hypothesis"]}},
+         "required": ["edits", "hypothesis"]}},
 ]
 
 PROPOSER_SYS = """You are a performance engineer speeding up TabPFN-3's `predict` on an H100.
@@ -85,14 +90,26 @@ Shannon divergence, each within the model's own run-to-run noise). It ACCEPTS on
 >=1 operating point speeds up >3% (bootstrap-CI) AND no point is confidently slower AND
 outputs stay within noise.
 
-EDIT SURFACE: only architectures/*.py (mainly architectures/tabpfn_v3.py). The model
-lives there (class TabPFNV3). Do NOT touch anything else.
+EDIT SURFACE: any .py in the tabpfn package — model (architectures/tabpfn_v3.py, class
+TabPFNV3), plus inference/orchestration (classifier.py, inference.py, base.py, etc.). The
+harness/gate/data live OUTSIDE this package and are off-limits.
+
+THE BIG LEVER (aim here): the model is launch/overhead-bound — thousands of tiny kernels per
+predict, GPU busy only ~25-60% of wall time. The small copy/cast/cache wins are largely
+exhausted (see tried-list). Go after the overhead with BOLD, output-preserving structural
+changes, and use MULTIPLE coordinated edits across files when needed:
+- torch.compile hot modules/blocks (mode="reduce-overhead" uses CUDA graphs) — scoped to
+  shapes/sizes where it pays (trunk already compiles inputs >=8192 rows; extend/strengthen
+  it, compile the ICL/column blocks, etc.). Watch for recompile thrash on dynamic shapes
+  (mark_dynamic / size-gating).
+- explicit CUDA graph capture of a repeated forward; fuse op sequences; precompute & reuse
+  buffers across blocks/layers.
 
 RULES:
-- Exactly ONE focused edit per turn, via submit_proposal. old_str must match VERBATIM, once.
-- Output-preserving systems optimizations ONLY: remove redundant copies/casts/.contiguous(),
-  fuse elementwise, reduce kernel launches, improve overlap, reuse buffers, torch.compile
-  scoped to where it helps. fp-level reordering is fine (the gate tolerates it).
+- One candidate per turn = one OR MORE edits (across one or more files) via submit_proposal.
+  Each old_str must match VERBATIM, exactly once in its file.
+- Output-preserving only: fp-level reordering (compile/fusion) is fine (the gate tolerates it).
+  Prefer a bold structural change over another tiny pointwise tweak.
 - FORBIDDEN (the critic will reject): changing the math/predictions, changing output shapes,
   caching or special-casing the benchmark inputs, skipping samples/layers, lowering precision
   in a way that changes results, touching the harness/gate/data.
@@ -123,7 +140,7 @@ def handle_tool(name, inp, captured):
         e = min(len(lines), inp.get("end", s + 120))
         return "\n".join(f"{i+1}\t{lines[i]}" for i in range(s, e))[:12000]
     if name == "grep":
-        r = subprocess.run(["grep", "-rnE", inp["pattern"], "architectures/"],
+        r = subprocess.run(["grep", "-rnE", "--include=*.py", inp["pattern"], "."],
                            cwd=TPDIR, capture_output=True, text=True)
         return (r.stdout or "(no matches)")[:6000]
     if name == "grep_notes":
@@ -133,20 +150,25 @@ def handle_tool(name, inp, captured):
                            capture_output=True, text=True)
         return (r.stdout or "(no matches)")[:6000]
     if name == "submit_proposal":
-        f = inp.get("file", "")
-        if not (f.startswith("architectures/") and safe_path(f)):
-            return "error: file must be under architectures/ and .py"
-        if not (inp.get("old_str") and inp.get("new_str") and inp.get("hypothesis")):
-            return "error: include non-empty file, old_str, new_str, AND hypothesis."
-        try:
-            content = read(f)
-        except Exception as e:
-            return f"error: cannot read {f}: {e}"
-        n = content.count(inp["old_str"])
-        if n != 1:
-            return f"error: old_str appears {n} times (must be exactly 1). Re-read and make it unique."
+        edits = inp.get("edits")
+        if not edits or not inp.get("hypothesis"):
+            return "error: include a non-empty edits[] array AND a hypothesis."
+        for j, ed in enumerate(edits):
+            f = ed.get("file", "")
+            if not safe_path(f):
+                return f"error: edit {j} file {f!r} must be a .py within the tabpfn package."
+            if not (ed.get("old_str") and ed.get("new_str") is not None):
+                return f"error: edit {j} needs non-empty old_str and new_str."
+            try:
+                content = read(f)
+            except Exception as e:
+                return f"error: edit {j} cannot read {f}: {e}"
+            n = content.count(ed["old_str"])
+            if n != 1:
+                return (f"error: edit {j} old_str appears {n} times in {f} "
+                        f"(must be exactly 1). Re-read and make it unique.")
         captured["proposal"] = inp
-        return "accepted — evaluating now."
+        return f"accepted — {len(edits)} edit(s), evaluating now."
     return "error: unknown tool"
 
 
@@ -249,14 +271,16 @@ def run_iteration(i, a):
             return
         print(f"PROPOSAL [{prop.get('frontier_id','?')}]: {prop['hypothesis'][:120]}", flush=True)
 
-        # apply on a branch
+        # apply all edits on a branch
         branch = f"opt/auto-{i+1}"
         git("branch", "-D", branch, check=False)
         git("checkout", "-q", "-f", "-b", branch)
-        f = prop["file"]
-        content = read(f)
-        open(os.path.join(TPDIR, f), "w").write(
-            content.replace(prop["old_str"], prop["new_str"], 1))
+        for ed in prop["edits"]:
+            full = os.path.join(TPDIR, ed["file"])
+            content = open(full).read()
+            open(full, "w").write(content.replace(ed["old_str"], ed["new_str"], 1))
+        files = sorted({ed["file"] for ed in prop["edits"]})
+        print(f"  applied {len(prop['edits'])} edit(s) across {files}", flush=True)
         git("add", "-A")
         git("commit", "-q", "-m", f"auto {i+1}: {prop['hypothesis'][:60]}")
         diff = git("show", "--stat", "HEAD").stdout + "\n" + git("show", "HEAD").stdout
