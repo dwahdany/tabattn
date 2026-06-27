@@ -303,6 +303,7 @@ def run_iteration(i, a):
         print(f"  applied {len(prop['edits'])} edit(s) across {files}", flush=True)
         git("add", "-A")
         git("commit", "-q", "-m", f"auto {i+1}: {prop['hypothesis'][:60]}")
+        cand_ref = git("rev-parse", "--short", "HEAD").stdout.strip()
         diff = git("show", "--stat", "HEAD").stdout + "\n" + git("show", "HEAD").stdout
 
         # critic
@@ -319,7 +320,17 @@ def run_iteration(i, a):
                             "--hypothesis", prop["hypothesis"], "--points", a.points,
                             "--repeats", str(a.repeats)],
                            cwd="/workspace", capture_output=True, text=True)
-        rec = json.loads([l for l in open(LEDGER)][-1])
+        # Trust the verdict ONLY if the referee succeeded AND wrote a fresh ledger
+        # entry for THIS candidate. Otherwise a crashed eval would leave us reading
+        # a stale "accept" and blind-promoting unvalidated edits (the 12h-run bug).
+        last = json.loads([l for l in open(LEDGER)][-1]) if os.path.exists(LEDGER) else {}
+        if r.returncode != 0 or last.get("ref") != cand_ref:
+            print(f"REFEREE FAILED (rc={r.returncode}); NOT promoting. "
+                  f"stderr: {r.stderr[-400:]}", flush=True)
+            git("checkout", "-q", "-f", TRUNK)
+            log_note(i + 1, prop, "eval-failed", verdict_c["reason"], None)
+            return
+        rec = last
         print(f"REFEREE: {rec['verdict']}  geomean={rec['geomean_speedup']}", flush=True)
 
         if rec["verdict"] == "accept":
