@@ -26,7 +26,7 @@ GREEN, BLUE, RED = "#3a923a", "#4c72b0", "#c44e52"
 
 # short labels for each accepted optimization (in order)
 STEP_LABELS = ["stock", "+compile-large", "+contiguous-elim", "+base-scales cache",
-               "+fused QKV", "+dist-embed q"]
+               "+fused QKV", "+dist-embed q", "+ISAB contig-elim"]
 
 
 def main():
