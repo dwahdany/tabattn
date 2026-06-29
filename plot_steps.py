@@ -25,13 +25,19 @@ INK, SUBTLE = "#1a1a1a", "#6b6b6b"
 GREEN, BLUE, RED = "#3a923a", "#4c72b0", "#c44e52"
 
 # short labels for each accepted optimization (in order)
-STEP_LABELS = ["stock", "+compile-large", "+contiguous-elim", "+base-scales cache",
-               "+fused QKV", "+dist-embed q", "+ISAB contig-elim"]
+def labels_from_order(order):
+    # order tokens look like "00_stock", "08_fused-rmsnorm" -> "stock", "fused-rmsnorm"
+    out = []
+    for i, o in enumerate(order):
+        name = o.split("_", 1)[1] if "_" in o else o
+        out.append(name if i == 0 else "+" + name)
+    return out
 
 
 def main():
     steps = json.load(open("steps.json"))
     order = steps["order"]
+    STEP_LABELS = labels_from_order(order)
     st = steps["states"]
     pts = list(st[order[0]].keys())  # ['typical','sample']
     stock = st[order[0]]

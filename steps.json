@@ -1,41 +1,71 @@
 {
   "order": [
-    "0_stock",
-    "1_compile-large",
-    "2_contiguous",
-    "3_base_scales",
-    "4_fused_qkv",
-    "5_dist_embed",
-    "6_isab_contig"
+    "00_stock",
+    "01_compile-large",
+    "02_qkv-contig",
+    "03_base-scales",
+    "04_fused-qkv",
+    "05_dist-embed",
+    "06_isab-contig",
+    "07_icl-compile",
+    "08_fused-rmsnorm",
+    "09_rope-fuse",
+    "10_host-ovh1",
+    "11_rmsnorm-copy",
+    "12_host-ovh2"
   ],
   "states": {
-    "0_stock": {
-      "typical": 136.69581338763237,
-      "sample": 286.41251008957624
+    "00_stock": {
+      "typical": 139.05661646276712,
+      "sample": 289.3201718106866
     },
-    "1_compile-large": {
-      "typical": 136.85744814574718,
-      "sample": 266.52067620307207
+    "01_compile-large": {
+      "typical": 134.1020641848445,
+      "sample": 266.962518915534
     },
-    "2_contiguous": {
-      "typical": 129.45970054715872,
-      "sample": 238.82955126464367
+    "02_qkv-contig": {
+      "typical": 127.73833889514208,
+      "sample": 239.07233122736216
     },
-    "3_base_scales": {
-      "typical": 120.4612934961915,
-      "sample": 239.14305493235588
+    "03_base-scales": {
+      "typical": 125.25795865803957,
+      "sample": 243.7642365694046
     },
-    "4_fused_qkv": {
-      "typical": 122.98364657908678,
-      "sample": 239.88698981702328
+    "04_fused-qkv": {
+      "typical": 123.03199246525764,
+      "sample": 239.5002767443657
     },
-    "5_dist_embed": {
-      "typical": 117.37248115241528,
-      "sample": 239.60864916443825
+    "05_dist-embed": {
+      "typical": 117.60388314723969,
+      "sample": 239.88852556794882
     },
-    "6_isab_contig": {
-      "typical": 115.00839702785015,
-      "sample": 233.89434721320868
+    "06_isab-contig": {
+      "typical": 115.8891599625349,
+      "sample": 234.91602577269077
+    },
+    "07_icl-compile": {
+      "typical": 119.34665869921446,
+      "sample": 236.99519969522953
+    },
+    "08_fused-rmsnorm": {
+      "typical": 112.82141134142876,
+      "sample": 229.08586729317904
+    },
+    "09_rope-fuse": {
+      "typical": 109.13380421698093,
+      "sample": 229.35581300407648
+    },
+    "10_host-ovh1": {
+      "typical": 103.6432096734643,
+      "sample": 229.69237342476845
+    },
+    "11_rmsnorm-copy": {
+      "typical": 105.91545607894659,
+      "sample": 229.24041841179132
+    },
+    "12_host-ovh2": {
+      "typical": 96.31896205246449,
+      "sample": 217.74006634950638
     }
   }
 }
