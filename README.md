@@ -125,4 +125,14 @@ bench/
   availability and per-cell status in the output.
 - Pinned compatible versions: torch 2.5.1 (cu124), flash-attn 2.7.4.post1
   (prebuilt `cu12torch2.5` wheel), xformers 0.0.28.post3.
-```
+
+## License
+
+Licensed under the **PolyForm Noncommercial License 1.0.0** — you may use,
+modify, and share this for any **noncommercial** purpose, but **not for
+commercial use**. See [`LICENSE`](LICENSE) for the full terms.
+
+Required Notice: Copyright Dariush Wahdany (https://wahdany.eu).
+
+(Why not CC BY-NC? Creative Commons advises against CC licenses for software;
+PolyForm Noncommercial is a software-appropriate noncommercial license.)
